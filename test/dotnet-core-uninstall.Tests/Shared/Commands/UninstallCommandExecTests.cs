@@ -5,46 +5,45 @@ using Xunit;
 using FluentAssertions;
 using Microsoft.DotNet.Tools.Uninstall.Shared.BundleInfo.Versioning;
 
-namespace Microsoft.DotNet.Tools.Uninstall.Tests.Shared.Commands
+namespace Microsoft.DotNet.Tools.Uninstall.Tests.Shared.Commands;
+
+public class UninstallCommandExecTests
 {
-    public class UninstallCommandExecTests
+    internal enum Results
     {
-        internal enum Results
+        Success,
+        Reject, 
+        Error
+    }
+
+    [Theory]
+    [InlineData("Y", Results.Success)]
+    [InlineData("YES", Results.Success)]
+    [InlineData("yes", Results.Success)]
+    [InlineData("n", Results.Reject)]
+    [InlineData("", Results.Error)]
+    [InlineData("foo", Results.Error)]
+    internal void UserInputIsInterpretedCorrectly(string userResponse, Results expectedResult)
+    {
+        var bundles = new Dictionary<Bundle, string>() { { new Bundle<SdkVersion>(new SdkVersion(), new BundleArch(), string.Empty, string.Empty), "Required" } };
+        try
         {
-            Success,
-            Reject, 
-            Error
+            var res = UninstallCommandExec.AskWithWarningsForRequiredBundles(bundles, userResponse);
+            res.Should().Be(expectedResult.Equals(Results.Success));
+        }
+        catch
+        {
+            expectedResult.Should().Be(Results.Error);
         }
 
-        [Theory]
-        [InlineData("Y", Results.Success)]
-        [InlineData("YES", Results.Success)]
-        [InlineData("yes", Results.Success)]
-        [InlineData("n", Results.Reject)]
-        [InlineData("", Results.Error)]
-        [InlineData("foo", Results.Error)]
-        internal void UserInputIsInterpretedCorrectly(string userResponse, Results expectedResult)
+        try
         {
-            var bundles = new Dictionary<Bundle, string>() { { new Bundle<SdkVersion>(new SdkVersion(), new BundleArch(), string.Empty, string.Empty), "Required" } };
-            try
-            {
-                var res = UninstallCommandExec.AskWithWarningsForRequiredBundles(bundles, userResponse);
-                res.Should().Be(expectedResult.Equals(Results.Success));
-            }
-            catch
-            {
-                expectedResult.Should().Be(Results.Error);
-            }
-
-            try
-            {
-                var res = UninstallCommandExec.AskItAndReturnUserAnswer(bundles, userResponse);
-                res.Should().Be(expectedResult.Equals(Results.Success));
-            }
-            catch
-            {
-                expectedResult.Should().Be(Results.Error);
-            }
+            var res = UninstallCommandExec.AskItAndReturnUserAnswer(bundles, userResponse);
+            res.Should().Be(expectedResult.Equals(Results.Success));
+        }
+        catch
+        {
+            expectedResult.Should().Be(Results.Error);
         }
     }
 }

@@ -1,6 +1,5 @@
-namespace Microsoft.Build.Logging.Query.Token
+﻿namespace Microsoft.Build.Logging.Query.Token;
+
+public abstract class Token
 {
-    public abstract class Token
-    {
-    }
 }

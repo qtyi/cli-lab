@@ -1,8 +1,7 @@
-namespace Microsoft.Build.Logging.Query.Ast
+﻿namespace Microsoft.Build.Logging.Query.Ast;
+
+public enum LogNodeType
 {
-    public enum LogNodeType
-    {
-        Direct,
-        All
-    }
+    Direct,
+    All
 }

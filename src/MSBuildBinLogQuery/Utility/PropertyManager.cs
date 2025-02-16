@@ -1,24 +1,23 @@
 ﻿using System.Collections.Concurrent;
 
-namespace Microsoft.Build.Logging.Query.Utility
+namespace Microsoft.Build.Logging.Query.Utility;
+
+public class PropertyManager
 {
-    public class PropertyManager
+    private readonly ConcurrentDictionary<string, string> _properties;
+
+    public PropertyManager()
     {
-        private readonly ConcurrentDictionary<string, string> _properties;
+        _properties = new ConcurrentDictionary<string, string>();
+    }
 
-        public PropertyManager()
-        {
-            _properties = new ConcurrentDictionary<string, string>();
-        }
+    public void Set(string key, string value)
+    {
+        _properties.AddOrUpdate(key, k => value, (k, v) => value);
+    }
 
-        public void Set(string key, string value)
-        {
-            _properties.AddOrUpdate(key, k => value, (k, v) => value);
-        }
-
-        public bool TryGet(string key, out string value)
-        {
-            return _properties.TryGetValue(key, out value);
-        }
+    public bool TryGet(string key, out string value)
+    {
+        return _properties.TryGetValue(key, out value);
     }
 }

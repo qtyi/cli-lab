@@ -1,9 +1,8 @@
-namespace Microsoft.Build.Logging.Query.Result
+﻿namespace Microsoft.Build.Logging.Query.Result;
+
+public class Error : Log
 {
-    public class Error : Log
+    public Error(string text, Component parent) : base(text, parent)
     {
-        public Error(string text, Component parent) : base(text, parent)
-        {
-        }
     }
 }

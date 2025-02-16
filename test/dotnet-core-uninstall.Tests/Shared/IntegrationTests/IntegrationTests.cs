@@ -5,17 +5,16 @@ using FluentAssertions;
 using Microsoft.DotNet.Tools.Uninstall.Shared.Configs;
 using Xunit;
 
-namespace Microsoft.DotNet.Tools.Uninstall.Tests.Shared.IntegrationTests
+namespace Microsoft.DotNet.Tools.Uninstall.Tests.Shared.IntegrationTests;
+
+public class IntegrationTests
 {
-    public class IntegrationTests
+    [Fact]
+    internal void VersionCommandOutputsVersionInfo()
     {
-        [Fact]
-        internal void VersionCommandOutputsVersionInfo()
-        {
-            var console = new TestConsole();
-            var output = CommandLineConfigs.UninstallCommandParser.InvokeAsync(new string[1] { "--version" }, console);
-            output.Result.Should().Be(0);
-            console.Out.ToString().Should().Match("*.*.*");
-        }
+        var console = new TestConsole();
+        var output = CommandLineConfigs.UninstallCommandParser.InvokeAsync(["--version"], console);
+        output.Result.Should().Be(0);
+        console.Out.ToString().Should().Match("*.*.*");
     }
 }

@@ -1,14 +1,13 @@
 ﻿// Copyright (c) .NET Foundation and contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-namespace Microsoft.DotNet.Tools.Uninstall.Shared.Configs.Verbosity
+namespace Microsoft.DotNet.Tools.Uninstall.Shared.Configs.Verbosity;
+
+internal enum VerbosityLevel
 {
-    internal enum VerbosityLevel
-    {
-        Quiet,
-        Minimal,
-        Normal,
-        Detailed,
-        Diagnostic
-    }
+    Quiet,
+    Minimal,
+    Normal,
+    Detailed,
+    Diagnostic
 }

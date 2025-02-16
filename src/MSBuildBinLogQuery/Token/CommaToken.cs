@@ -1,11 +1,10 @@
-namespace Microsoft.Build.Logging.Query.Token
-{
-    public class CommaToken : Token
-    {
-        public static CommaToken Instance { get; } = new CommaToken();
+﻿namespace Microsoft.Build.Logging.Query.Token;
 
-        private CommaToken() : base()
-        {
-        }
+public class CommaToken : Token
+{
+    public static CommaToken Instance { get; } = new CommaToken();
+
+    private CommaToken() : base()
+    {
     }
 }

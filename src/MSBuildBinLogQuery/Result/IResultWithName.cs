@@ -1,7 +1,6 @@
-namespace Microsoft.Build.Logging.Query.Result
+﻿namespace Microsoft.Build.Logging.Query.Result;
+
+public interface IResultWithName : IQueryResult
 {
-    public interface IResultWithName : IQueryResult
-    {
-        string Name { get; }
-    }
+    string Name { get; }
 }

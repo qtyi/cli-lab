@@ -8,31 +8,30 @@ using System.Linq;
 using Microsoft.DotNet.Tools.Uninstall.Shared.Utils;
 using Microsoft.DotNet.Tools.Uninstall.MacOs;
 
-namespace Microsoft.DotNet.Tools.Uninstall.Shared.Commands
+namespace Microsoft.DotNet.Tools.Uninstall.Shared.Commands;
+
+internal static class DryRunCommandExec
 {
-    internal static class DryRunCommandExec
+    public static void Execute(IBundleCollector bundleCollector)
     {
-        public static void Execute(IBundleCollector bundleCollector)
+        CommandBundleFilter.HandleVersionOption();
+
+        var filtered = CommandBundleFilter.GetFilteredWithRequirementStrings(bundleCollector);
+        TryIt(filtered);
+    }
+
+    private static void TryIt(IDictionary<Bundle, string> bundles)
+    {
+        var displayNames = string.Join("\n", bundles.Select(bundle => $"  {bundle.Key.DisplayName}"));
+        Console.WriteLine(string.Format(RuntimeInfo.RunningOnWindows ? 
+            LocalizableStrings.WindowsDryRunOutputFormat : LocalizableStrings.MacDryRunOutputFormat, displayNames));
+
+        foreach (var pair in bundles.Where(b => !b.Value.Equals(string.Empty)))
         {
-            CommandBundleFilter.HandleVersionOption();
-
-            var filtered = CommandBundleFilter.GetFilteredWithRequirementStrings(bundleCollector);
-            TryIt(filtered);
-        }
-
-        private static void TryIt(IDictionary<Bundle, string> bundles)
-        {
-            var displayNames = string.Join("\n", bundles.Select(bundle => $"  {bundle.Key.DisplayName}"));
-            Console.WriteLine(string.Format(RuntimeInfo.RunningOnWindows ? 
-                LocalizableStrings.WindowsDryRunOutputFormat : LocalizableStrings.MacDryRunOutputFormat, displayNames));
-
-            foreach (var pair in bundles.Where(b => !b.Value.Equals(string.Empty)))
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.Write(string.Format(RuntimeInfo.RunningOnWindows ? LocalizableStrings.WindowsRequiredBundleConfirmationPromptWarningFormat : 
-                    LocalizableStrings.MacRequiredBundleConfirmationPromptWarningFormat, pair.Key.DisplayName, pair.Value));
-                Console.ResetColor();
-            }
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.Write(string.Format(RuntimeInfo.RunningOnWindows ? LocalizableStrings.WindowsRequiredBundleConfirmationPromptWarningFormat : 
+                LocalizableStrings.MacRequiredBundleConfirmationPromptWarningFormat, pair.Key.DisplayName, pair.Value));
+            Console.ResetColor();
         }
     }
 }

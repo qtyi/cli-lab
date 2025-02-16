@@ -1,111 +1,110 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Microsoft.Build.Logging.Query.Graph
+namespace Microsoft.Build.Logging.Query.Graph;
+
+public class DirectedAcyclicGraph<T>
+    where T : IDirectedAcyclicGraphNode<T>,
+              IShallowCopyableGraphNode<T>,
+              IEquatable<T>
 {
-    public class DirectedAcyclicGraph<T>
-        where T : IDirectedAcyclicGraphNode<T>,
-                  IShallowCopyableGraphNode<T>,
-                  IEquatable<T>
+    public IEnumerable<T> Nodes { get; }
+
+    public DirectedAcyclicGraph(IEnumerable<T> nodes)
     {
-        public IEnumerable<T> Nodes { get; }
+        Nodes = nodes;
+    }
 
-        public DirectedAcyclicGraph(IEnumerable<T> nodes)
+    public bool TopologicalSort(out List<T> topologicalOrdering)
+    {
+        var inDegrees = new Dictionary<T, int>();
+
+        foreach (var node in Nodes)
         {
-            Nodes = nodes;
+            inDegrees[node] = 0;
         }
 
-        public bool TopologicalSort(out List<T> topologicalOrdering)
+        foreach (var node in Nodes)
         {
-            var inDegrees = new Dictionary<T, int>();
-
-            foreach (var node in Nodes)
+            foreach (var adjacentNode in node.AdjacentNodes)
             {
-                inDegrees[node] = 0;
+                inDegrees[adjacentNode]++;
             }
-
-            foreach (var node in Nodes)
-            {
-                foreach (var adjacentNode in node.AdjacentNodes)
-                {
-                    inDegrees[adjacentNode]++;
-                }
-            }
-
-            var queue = new Queue<T>();
-
-            foreach (var node in Nodes)
-            {
-                if (inDegrees[node] == 0)
-                {
-                    queue.Enqueue(node);
-                }
-            }
-
-            topologicalOrdering = new List<T>();
-
-            while (queue.TryDequeue(out var first))
-            {
-                topologicalOrdering.Add(first);
-
-                foreach (var adjacentNode in first.AdjacentNodes)
-                {
-                    inDegrees[adjacentNode]--;
-
-                    if (inDegrees[adjacentNode] == 0)
-                    {
-                        queue.Enqueue(adjacentNode);
-                    }
-                }
-            }
-            
-            return Nodes.All(node => inDegrees[node] == 0);
         }
 
-        public bool GetReachableNodes(out Dictionary<T, HashSet<T>> reachables)
+        var queue = new Queue<T>();
+
+        foreach (var node in Nodes)
         {
-            var reversedGraph = Reverse();
-
-            reachables = new Dictionary<T, HashSet<T>>();
-
-            if (!reversedGraph.TopologicalSort(out var topologicalOrdering))
+            if (inDegrees[node] == 0)
             {
-                return false;
+                queue.Enqueue(node);
             }
-
-            foreach (var node in reversedGraph.Nodes)
-            {
-                reachables[node] = new HashSet<T>();
-            }
-
-            foreach (var node in topologicalOrdering)
-            {
-                foreach (var adjacentNode in node.AdjacentNodes)
-                {
-                    reachables[adjacentNode].UnionWith(reachables[node]);
-                    reachables[adjacentNode].Add(node);
-                }
-            }
-
-            return true;
         }
 
-        public DirectedAcyclicGraph<T> Reverse()
-        {
-            var reversedNodes = Nodes.ToDictionary(
-                node => node,
-                node => node.ShallowCopyAndClearEdges());
+        topologicalOrdering = new List<T>();
 
-            foreach (var node in Nodes)
+        while (queue.TryDequeue(out var first))
+        {
+            topologicalOrdering.Add(first);
+
+            foreach (var adjacentNode in first.AdjacentNodes)
             {
-                foreach (var adjacentNode in node.AdjacentNodes)
+                inDegrees[adjacentNode]--;
+
+                if (inDegrees[adjacentNode] == 0)
                 {
-                    reversedNodes[adjacentNode].AdjacentNodes.Add(reversedNodes[node]);
+                    queue.Enqueue(adjacentNode);
                 }
             }
-
-            return new DirectedAcyclicGraph<T>(reversedNodes.Values);
         }
+        
+        return Nodes.All(node => inDegrees[node] == 0);
+    }
+
+    public bool GetReachableNodes(out Dictionary<T, HashSet<T>> reachables)
+    {
+        var reversedGraph = Reverse();
+
+        reachables = new Dictionary<T, HashSet<T>>();
+
+        if (!reversedGraph.TopologicalSort(out var topologicalOrdering))
+        {
+            return false;
+        }
+
+        foreach (var node in reversedGraph.Nodes)
+        {
+            reachables[node] = new HashSet<T>();
+        }
+
+        foreach (var node in topologicalOrdering)
+        {
+            foreach (var adjacentNode in node.AdjacentNodes)
+            {
+                reachables[adjacentNode].UnionWith(reachables[node]);
+                reachables[adjacentNode].Add(node);
+            }
+        }
+
+        return true;
+    }
+
+    public DirectedAcyclicGraph<T> Reverse()
+    {
+        var reversedNodes = Nodes.ToDictionary(
+            node => node,
+            node => node.ShallowCopyAndClearEdges());
+
+        foreach (var node in Nodes)
+        {
+            foreach (var adjacentNode in node.AdjacentNodes)
+            {
+                reversedNodes[adjacentNode].AdjacentNodes.Add(reversedNodes[node]);
+            }
+        }
+
+        return new DirectedAcyclicGraph<T>(reversedNodes.Values);
     }
 }

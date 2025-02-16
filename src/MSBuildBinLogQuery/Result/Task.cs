@@ -3,36 +3,35 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.Build.Logging.Query.Utility;
 
-namespace Microsoft.Build.Logging.Query.Result
+namespace Microsoft.Build.Logging.Query.Result;
+
+public class Task : Component, IEquatable<Task>, IResultWithId, IResultWithName
 {
-    public class Task : Component, IEquatable<Task>, IResultWithId, IResultWithName
+    public int Id { get; }
+    public string Name { get; }
+    public string TaskFile { get; }
+    public Target ParentTarget { get; }
+    public PropertyManager Parameters { get; }
+    public override Component Parent => ParentTarget;
+
+    public Task(int id, string name, string taskFile, Target parentTarget) : base()
     {
-        public int Id { get; }
-        public string Name { get; }
-        public string TaskFile { get; }
-        public Target ParentTarget { get; }
-        public PropertyManager Parameters { get; }
-        public override Component Parent => ParentTarget;
+        Id = id;
+        Name = name;
+        TaskFile = taskFile;
+        ParentTarget = parentTarget;
+        Parameters = new PropertyManager();
+    }
 
-        public Task(int id, string name, string taskFile, Target parentTarget) : base()
-        {
-            Id = id;
-            Name = name;
-            TaskFile = taskFile;
-            ParentTarget = parentTarget;
-            Parameters = new PropertyManager();
-        }
+    public bool Equals([AllowNull] Task other)
+    {
+        return other != null &&
+               Id == other.Id &&
+               EqualityComparer<Target>.Default.Equals(ParentTarget, other.ParentTarget);
+    }
 
-        public bool Equals([AllowNull] Task other)
-        {
-            return other != null &&
-                   Id == other.Id &&
-                   EqualityComparer<Target>.Default.Equals(ParentTarget, other.ParentTarget);
-        }
-
-        public override int GetHashCode()
-        {
-            return HashCode.Combine(Id);
-        }
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(Id);
     }
 }

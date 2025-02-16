@@ -3,42 +3,47 @@
 
 using System;
 using System.Collections.Generic;
+using System.CommandLine;
 using System.CommandLine.Rendering.Views;
 using Microsoft.DotNet.Tools.Uninstall.Shared.BundleInfo;
 using Microsoft.DotNet.Tools.Uninstall.Shared.BundleInfo.Versioning;
+using Microsoft.VisualBasic.FileIO;
 
-namespace Microsoft.DotNet.Tools.Uninstall.Shared.Configs
+namespace Microsoft.DotNet.Tools.Uninstall.Shared.Configs;
+
+internal abstract class BundleTypePrintInfo
 {
-    internal abstract class BundleTypePrintInfo
+    public abstract BundleType Type { get; }
+
+    public string Header { get; }
+    public Func<IDictionary<Bundle, string>, bool, GridView> GridViewGenerator { get; }
+    public Option<bool> Option { get; }
+
+    protected BundleTypePrintInfo(string header, Func<IDictionary<Bundle, string>, bool, GridView> gridViewGenerator, Option<bool> option)
     {
-        public abstract BundleType Type { get; }
+        ArgumentNullException.ThrowIfNull(header);
+        ArgumentNullException.ThrowIfNull(gridViewGenerator);
+        ArgumentNullException.ThrowIfNull(option);
 
-        public string Header { get; }
-        public Func<IDictionary<Bundle, string>, bool, GridView> GridViewGenerator { get; }
-        public string OptionName { get; }
-
-        protected BundleTypePrintInfo(string header, Func<IDictionary<Bundle, string>, bool, GridView> gridViewGenerator, string optionName)
-        {
-            Header = header ?? throw new ArgumentNullException();
-            GridViewGenerator = gridViewGenerator ?? throw new ArgumentNullException();
-            OptionName = optionName ?? throw new ArgumentNullException();
-        }
-
-        public abstract IEnumerable<Bundle> Filter(IEnumerable<Bundle> bundles);
+        Header = header;
+        GridViewGenerator = gridViewGenerator;
+        Option = option;
     }
 
-    internal class BundleTypePrintInfo<TBundleVersion> : BundleTypePrintInfo
-        where TBundleVersion : BundleVersion, IComparable<TBundleVersion>, new()
+    public abstract IEnumerable<Bundle> Filter(IEnumerable<Bundle> bundles);
+}
+
+internal class BundleTypePrintInfo<TBundleVersion> : BundleTypePrintInfo
+    where TBundleVersion : BundleVersion, IComparable<TBundleVersion>, new()
+{
+    public override BundleType Type => new TBundleVersion().Type;
+
+    public BundleTypePrintInfo(string header, Func<IDictionary<Bundle, string>, bool, GridView> gridViewGenerator, Option<bool> option) :
+        base(header, gridViewGenerator, option)
+    { }
+
+    public override IEnumerable<Bundle> Filter(IEnumerable<Bundle> bundles)
     {
-        public override BundleType Type => new TBundleVersion().Type;
-
-        public BundleTypePrintInfo(string header, Func<IDictionary<Bundle, string>, bool, GridView> gridViewGenerator, string optionName) :
-            base(header, gridViewGenerator, optionName)
-        { }
-
-        public override IEnumerable<Bundle> Filter(IEnumerable<Bundle> bundles)
-        {
-            return Bundle<TBundleVersion>.FilterWithSameBundleType(bundles);
-        }
+        return Bundle<TBundleVersion>.FilterWithSameBundleType(bundles);
     }
 }

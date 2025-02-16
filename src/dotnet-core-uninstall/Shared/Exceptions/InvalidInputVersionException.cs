@@ -1,12 +1,11 @@
 ﻿// Copyright (c) .NET Foundation and contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-namespace Microsoft.DotNet.Tools.Uninstall.Shared.Exceptions
+namespace Microsoft.DotNet.Tools.Uninstall.Shared.Exceptions;
+
+internal class InvalidInputVersionException : DotNetUninstallException
 {
-    internal class InvalidInputVersionException : DotNetUninstallException
-    {
-        public InvalidInputVersionException(string versionString) :
-            base(string.Format(LocalizableStrings.InvalidInputVersionExceptionMessageFormat, versionString))
-        { }
-    }
+    public InvalidInputVersionException(string versionString) :
+        base(string.Format(LocalizableStrings.InvalidInputVersionExceptionMessageFormat, versionString))
+    { }
 }

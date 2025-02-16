@@ -4,100 +4,99 @@ using Microsoft.DotNet.Tools.Uninstall.Shared.BundleInfo;
 using Microsoft.DotNet.Tools.Uninstall.Shared.Configs;
 using Xunit;
 
-namespace Microsoft.DotNet.Tools.Uninstall.Tests.Shared.Filterers
+namespace Microsoft.DotNet.Tools.Uninstall.Tests.Shared.Filterers;
+
+public class AllPreviewsOptionFiltererTests : FiltererTests
 {
-    public class AllPreviewsOptionFiltererTests : FiltererTests
+    internal override Option Option => CommandLineConfigs.UninstallAllPreviewsOption;
+    internal override string DefaultTestArgValue => "";
+
+    public static IEnumerable<object[]> GetDataForTestFiltererGood()
     {
-        internal override Option Option => CommandLineConfigs.UninstallAllPreviewsOption;
-        internal override string DefaultTestArgValue => "";
-
-        public static IEnumerable<object[]> GetDataForTestFiltererGood()
+        yield return new object[]
         {
-            yield return new object[]
+            DefaultTestBundles,
+            new List<Bundle>
             {
-                DefaultTestBundles,
-                new List<Bundle>
-                {
-                    Sdk_3_0_100_P5_X64,
-                    Sdk_2_1_300_Rc1_X64,
-                    Sdk_2_1_300_Rc1_X86
-                },
-                BundleType.Sdk,
-                DefaultTestArchSelection
-            };
+                Sdk_3_0_100_P5_X64,
+                Sdk_2_1_300_Rc1_X64,
+                Sdk_2_1_300_Rc1_X86
+            },
+            BundleType.Sdk,
+            DefaultTestArchSelection
+        };
 
-            yield return new object[]
-            {
-                DefaultTestBundles,
-                new List<Bundle>
-                {
-                    Runtime_3_0_0_P5_X64,
-                    Runtime_3_0_0_P5_X86,
-                    Runtime_3_0_0_P_X86,
-                    Runtime_2_1_0_Rc1_X64
-                },
-                BundleType.Runtime,
-                DefaultTestArchSelection
-            };
-
-            yield return new object[]
-            {
-                DefaultTestBundles,
-                new List<Bundle>
-                {
-                    Sdk_3_0_100_P5_X64,
-                    Sdk_2_1_300_Rc1_X64
-                },
-                BundleType.Sdk,
-                BundleArch.X64
-            };
-
-            yield return new object[]
-            {
-                DefaultTestBundles,
-                new List<Bundle>
-                {
-                    Runtime_3_0_0_P5_X86,
-                    Runtime_3_0_0_P_X86
-                },
-                BundleType.Runtime,
-                BundleArch.X86
-            };
-
-            yield return new object[]
-            {
-                DefaultTestBundles,
-                new List<Bundle>
-                {
-                    AspNetRuntime_3_0_0_P6_X64,
-                    AspNetRuntime_3_0_0_P_X64,
-                    AspNetRuntime_2_1_0_Rc1_X64
-                },
-                BundleType.AspNetRuntime,
-                DefaultTestArchSelection
-            };
-
-            yield return new object[]
-            {
-                DefaultTestBundles,
-                new List<Bundle>
-                {
-                    HostingBundle_3_0_0_P6_X86,
-                    HostingBundle_3_0_0_P4_X86,
-                    HostingBundle_2_2_0_P3_X86,
-                    HostingBundle_2_2_0_P1_X86,
-                    HostingBundle_2_1_0_Rc1_X86,
-                },
-                BundleType.HostingBundle,
-                DefaultTestArchSelection
-            };
-        }
-
-        [Theory]
-        [MemberData(nameof(GetDataForTestFiltererGood))]
-        internal void TestAllPreviewsOptionFiltererGood(IEnumerable<Bundle> testBundles, IEnumerable<Bundle> expected, BundleType typeSelection, BundleArch archSelection)
+        yield return new object[]
         {
-            TestFiltererGood(testBundles, DefaultTestArgValue, expected, typeSelection, archSelection);
-        }
+            DefaultTestBundles,
+            new List<Bundle>
+            {
+                Runtime_3_0_0_P5_X64,
+                Runtime_3_0_0_P5_X86,
+                Runtime_3_0_0_P_X86,
+                Runtime_2_1_0_Rc1_X64
+            },
+            BundleType.Runtime,
+            DefaultTestArchSelection
+        };
+
+        yield return new object[]
+        {
+            DefaultTestBundles,
+            new List<Bundle>
+            {
+                Sdk_3_0_100_P5_X64,
+                Sdk_2_1_300_Rc1_X64
+            },
+            BundleType.Sdk,
+            BundleArch.X64
+        };
+
+        yield return new object[]
+        {
+            DefaultTestBundles,
+            new List<Bundle>
+            {
+                Runtime_3_0_0_P5_X86,
+                Runtime_3_0_0_P_X86
+            },
+            BundleType.Runtime,
+            BundleArch.X86
+        };
+
+        yield return new object[]
+        {
+            DefaultTestBundles,
+            new List<Bundle>
+            {
+                AspNetRuntime_3_0_0_P6_X64,
+                AspNetRuntime_3_0_0_P_X64,
+                AspNetRuntime_2_1_0_Rc1_X64
+            },
+            BundleType.AspNetRuntime,
+            DefaultTestArchSelection
+        };
+
+        yield return new object[]
+        {
+            DefaultTestBundles,
+            new List<Bundle>
+            {
+                HostingBundle_3_0_0_P6_X86,
+                HostingBundle_3_0_0_P4_X86,
+                HostingBundle_2_2_0_P3_X86,
+                HostingBundle_2_2_0_P1_X86,
+                HostingBundle_2_1_0_Rc1_X86,
+            },
+            BundleType.HostingBundle,
+            DefaultTestArchSelection
+        };
+    }
+
+    [Theory]
+    [MemberData(nameof(GetDataForTestFiltererGood))]
+    internal void TestAllPreviewsOptionFiltererGood(IEnumerable<Bundle> testBundles, IEnumerable<Bundle> expected, BundleType typeSelection, BundleArch archSelection)
+    {
+        TestFiltererGood(testBundles, DefaultTestArgValue, expected, typeSelection, archSelection);
     }
 }

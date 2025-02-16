@@ -16,244 +16,243 @@ using System.Runtime.InteropServices;
 using System.ComponentModel;
 using Microsoft.DotNet.Tools.Uninstall.MacOs;
 
-namespace Microsoft.DotNet.Tools.Uninstall.Shared.Commands
+namespace Microsoft.DotNet.Tools.Uninstall.Shared.Commands;
+
+internal static class UninstallCommandExec
 {
-    internal static class UninstallCommandExec
+    private const int UNINSTALL_TIMEOUT = 10 * 60 * 1000;
+
+    [DllImport("libc")]
+    private static extern uint getuid();
+
+    [DllImport("shell32.dll", SetLastError = true)]
+    private static extern IntPtr CommandLineToArgvW(
+        [MarshalAs(UnmanagedType.LPWStr)] string lpCmdLine,
+        out int pNumArgs);
+
+    public static void Execute(IBundleCollector bundleCollector)
     {
-        private const int UNINSTALL_TIMEOUT = 10 * 60 * 1000;
+        CommandBundleFilter.HandleVersionOption();
 
-        [DllImport("libc")]
-        private static extern uint getuid();
+        var filtered = CommandBundleFilter.GetFilteredWithRequirementStrings(bundleCollector);
 
-        [DllImport("shell32.dll", SetLastError = true)]
-        private static extern IntPtr CommandLineToArgvW(
-            [MarshalAs(UnmanagedType.LPWStr)] string lpCmdLine,
-            out int pNumArgs);
-
-        public static void Execute(IBundleCollector bundleCollector)
+        if (CommandLineConfigs.CommandLineParseResult.FindResultFor(CommandLineConfigs.YesOption) != null)
         {
-            CommandBundleFilter.HandleVersionOption();
-
-            var filtered = CommandBundleFilter.GetFilteredWithRequirementStrings(bundleCollector);
-
-            if (CommandLineConfigs.CommandLineParseResult.FindResultFor(CommandLineConfigs.YesOption) != null)
+            if (!IsAdmin())
             {
-                if (!IsAdmin())
-                {
-                    throw new NotAdminException();
-                }
-
-                DoIt(filtered.Keys);
+                throw new NotAdminException();
             }
-            else
-            {
-                if (!IsAdmin())
-                {
-                    throw new NotAdminException();
-                }
 
-                if (AskItAndReturnUserAnswer(filtered))
+            DoIt(filtered.Keys);
+        }
+        else
+        {
+            if (!IsAdmin())
+            {
+                throw new NotAdminException();
+            }
+
+            if (AskItAndReturnUserAnswer(filtered))
+            {
+                if (AskWithWarningsForRequiredBundles(filtered))
                 {
-                    if (AskWithWarningsForRequiredBundles(filtered))
-                    {
-                        DoIt(filtered.Keys);
-                    }
+                    DoIt(filtered.Keys);
                 }
             }
         }
+    }
 
-        private static void DoIt(IEnumerable<Bundle> bundles)
+    private static void DoIt(IEnumerable<Bundle> bundles)
+    {
+        var verbosityLevel = CommandLineConfigs.CommandLineParseResult.CommandResult.GetVerbosityLevel();
+        var verbosityLogger = new VerbosityLogger(verbosityLevel);
+
+        var canceled = false;
+        using var cancelMutex = new Mutex();
+
+        var cancelProcessHandler = new ConsoleCancelEventHandler((sender, cancelArgs) =>
         {
-            var verbosityLevel = CommandLineConfigs.CommandLineParseResult.CommandResult.GetVerbosityLevel();
-            var verbosityLogger = new VerbosityLogger(verbosityLevel);
+            cancelMutex.WaitOne();
 
-            var canceled = false;
-            using var cancelMutex = new Mutex();
-
-            var cancelProcessHandler = new ConsoleCancelEventHandler((sender, cancelArgs) =>
-            {
-                cancelMutex.WaitOne();
-
-                try
-                {
-                    if (!canceled)
-                    {
-                        canceled = true;
-                        Console.WriteLine(LocalizableStrings.CancelingMessage);
-                    }
-
-                    cancelArgs.Cancel = true;
-                }
-                finally
-                {
-                    cancelMutex.ReleaseMutex();
-                }
-            });
-
-            foreach (var bundle in bundles.ToList().AsReadOnly())
-            {
-                verbosityLogger.Log(VerbosityLevel.Normal, string.Format(LocalizableStrings.UninstallNormalVerbosityFormat, bundle.DisplayName));
-
-                using var process = new Process
-                {
-                    StartInfo = GetProcessStartInfo(bundle.UninstallCommand)
-                };
-
-                Console.CancelKeyPress += cancelProcessHandler;
-
-                if (!process.Start() || !process.WaitForExit(UNINSTALL_TIMEOUT))
-                {
-                    throw new UninstallationFailedException(bundle.UninstallCommand);
-                }
-
-                if (process.ExitCode != 0)
-                {
-                    throw new UninstallationFailedException(bundle.UninstallCommand, process.ExitCode);
-                }
-
-                Console.CancelKeyPress -= cancelProcessHandler;
-
-                cancelMutex.WaitOne();
-
-                try
-                {
-                    if (canceled)
-                    {
-                        Environment.Exit(1);
-                    }
-                }
-                finally
-                {
-                    cancelMutex.ReleaseMutex();
-                }
-            }
-        }
-
-        private static bool IsAdmin()
-        {
             try
             {
-                if (RuntimeInfo.RunningOnWindows)
+                if (!canceled)
                 {
-                    var identity = WindowsIdentity.GetCurrent();
-                    var principal = new WindowsPrincipal(identity);
-                    return principal.IsInRole(WindowsBuiltInRole.Administrator);
+                    canceled = true;
+                    Console.WriteLine(LocalizableStrings.CancelingMessage);
                 }
-                else if (RuntimeInfo.RunningOnOSX)
+
+                cancelArgs.Cancel = true;
+            }
+            finally
+            {
+                cancelMutex.ReleaseMutex();
+            }
+        });
+
+        foreach (var bundle in bundles.ToList().AsReadOnly())
+        {
+            verbosityLogger.Log(VerbosityLevel.Normal, string.Format(LocalizableStrings.UninstallNormalVerbosityFormat, bundle.DisplayName));
+
+            using var process = new Process
+            {
+                StartInfo = GetProcessStartInfo(bundle.UninstallCommand)
+            };
+
+            Console.CancelKeyPress += cancelProcessHandler;
+
+            if (!process.Start() || !process.WaitForExit(UNINSTALL_TIMEOUT))
+            {
+                throw new UninstallationFailedException(bundle.UninstallCommand);
+            }
+
+            if (process.ExitCode != 0)
+            {
+                throw new UninstallationFailedException(bundle.UninstallCommand, process.ExitCode);
+            }
+
+            Console.CancelKeyPress -= cancelProcessHandler;
+
+            cancelMutex.WaitOne();
+
+            try
+            {
+                if (canceled)
                 {
-                    return getuid() == 0;
-                }
-                else
-                {
-                    throw new OperatingSystemNotSupportedException();
+                    Environment.Exit(1);
                 }
             }
-            catch
+            finally
             {
-                return false;
+                cancelMutex.ReleaseMutex();
             }
         }
+    }
 
-        private static ProcessStartInfo GetProcessStartInfo(string command)
+    private static bool IsAdmin()
+    {
+        try
         {
             if (RuntimeInfo.RunningOnWindows)
             {
-                var args = ParseCommandToArgs(command);
-
-                return new ProcessStartInfo
-                {
-                    FileName = args.First(),
-                    Arguments = string.Join(" ", args.Skip(1)),
-                    UseShellExecute = true,
-                    Verb = "runas"
-                };
+                var identity = WindowsIdentity.GetCurrent();
+                var principal = new WindowsPrincipal(identity);
+                return principal.IsInRole(WindowsBuiltInRole.Administrator);
             }
             else if (RuntimeInfo.RunningOnOSX)
             {
-                return new ProcessStartInfo
-                {
-                    FileName = "rm",
-                    Arguments = $"-rf {command}",
-                    UseShellExecute = true
-                };
+                return getuid() == 0;
             }
             else
             {
                 throw new OperatingSystemNotSupportedException();
             }
         }
-
-        private static IEnumerable<string> ParseCommandToArgs(string command)
+        catch
         {
-            var argv = CommandLineToArgvW(command, out var argc);
+            return false;
+        }
+    }
 
-            if (argv == IntPtr.Zero)
+    private static ProcessStartInfo GetProcessStartInfo(string command)
+    {
+        if (RuntimeInfo.RunningOnWindows)
+        {
+            var args = ParseCommandToArgs(command);
+
+            return new ProcessStartInfo
             {
-                throw new Win32Exception();
-            }
-
-            string[] args;
-            try
+                FileName = args.First(),
+                Arguments = string.Join(" ", args.Skip(1)),
+                UseShellExecute = true,
+                Verb = "runas"
+            };
+        }
+        else if (RuntimeInfo.RunningOnOSX)
+        {
+            return new ProcessStartInfo
             {
-                args = new string[argc];
+                FileName = "rm",
+                Arguments = $"-rf {command}",
+                UseShellExecute = true
+            };
+        }
+        else
+        {
+            throw new OperatingSystemNotSupportedException();
+        }
+    }
 
-                for (var i = 0; i < argc; i++)
-                {
-                    var p = Marshal.ReadIntPtr(argv, i * IntPtr.Size);
-                    args[i] = Marshal.PtrToStringUni(p);
-                }
-            }
-            finally
-            {
-                Marshal.FreeHGlobal(argv);
-            }
+    private static IEnumerable<string> ParseCommandToArgs(string command)
+    {
+        var argv = CommandLineToArgvW(command, out var argc);
 
-            return args;
+        if (argv == IntPtr.Zero)
+        {
+            throw new Win32Exception();
         }
 
-        public static bool AskItAndReturnUserAnswer(IDictionary<Bundle, string> bundles, string userResponse = null)
+        string[] args;
+        try
         {
-            var displayNames = string.Join("\n", bundles.Select(bundle => $"  {bundle.Key.DisplayName}"));
-            Console.Write(string.Format(RuntimeInfo.RunningOnWindows ? LocalizableStrings.WindowsConfirmationPromptOutputFormat : 
-                LocalizableStrings.MacConfirmationPromptOutputFormat, displayNames));
+            args = new string[argc];
 
+            for (var i = 0; i < argc; i++)
+            {
+                var p = Marshal.ReadIntPtr(argv, i * IntPtr.Size);
+                args[i] = Marshal.PtrToStringUni(p);
+            }
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(argv);
+        }
+
+        return args;
+    }
+
+    public static bool AskItAndReturnUserAnswer(IDictionary<Bundle, string> bundles, string userResponse = null)
+    {
+        var displayNames = string.Join("\n", bundles.Select(bundle => $"  {bundle.Key.DisplayName}"));
+        Console.Write(string.Format(RuntimeInfo.RunningOnWindows ? LocalizableStrings.WindowsConfirmationPromptOutputFormat : 
+            LocalizableStrings.MacConfirmationPromptOutputFormat, displayNames));
+
+        var response = userResponse == null ? Console.ReadLine().Trim().ToUpper() : userResponse.ToUpper();
+
+        if (response.Equals("Y") || response.Equals("YES"))
+        {
+            return true;
+        }
+        else if (response.Equals("N"))
+        {
+            return false;
+        }
+        else
+        {
+            throw new ConfirmationPromptInvalidException();
+        }
+    }
+
+    public static bool AskWithWarningsForRequiredBundles(IDictionary<Bundle, string> bundles, string userResponse = null) 
+    {
+        var requiredBundles = bundles.Where(b => !b.Value.Equals(string.Empty));
+        foreach (var pair in requiredBundles)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.Write(string.Format(RuntimeInfo.RunningOnWindows ? LocalizableStrings.WindowsRequiredBundleConfirmationPromptOutputFormat : 
+                LocalizableStrings.MacRequiredBundleConfirmationPromptOutputFormat, pair.Key.DisplayName, pair.Value));
+            Console.ResetColor();
             var response = userResponse == null ? Console.ReadLine().Trim().ToUpper() : userResponse.ToUpper();
-
-            if (response.Equals("Y") || response.Equals("YES"))
+            if (response.Equals("N"))
             {
-                return true;
+                return false ;
             }
-            else if (response.Equals("N"))
-            {
-                return false;
-            }
-            else
+            else if (!(response.Equals("Y") || response.Equals("YES")))
             {
                 throw new ConfirmationPromptInvalidException();
             }
         }
 
-        public static bool AskWithWarningsForRequiredBundles(IDictionary<Bundle, string> bundles, string userResponse = null) 
-        {
-            var requiredBundles = bundles.Where(b => !b.Value.Equals(string.Empty));
-            foreach (var pair in requiredBundles)
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.Write(string.Format(RuntimeInfo.RunningOnWindows ? LocalizableStrings.WindowsRequiredBundleConfirmationPromptOutputFormat : 
-                    LocalizableStrings.MacRequiredBundleConfirmationPromptOutputFormat, pair.Key.DisplayName, pair.Value));
-                Console.ResetColor();
-                var response = userResponse == null ? Console.ReadLine().Trim().ToUpper() : userResponse.ToUpper();
-                if (response.Equals("N"))
-                {
-                    return false ;
-                }
-                else if (!(response.Equals("Y") || response.Equals("YES")))
-                {
-                    throw new ConfirmationPromptInvalidException();
-                }
-            }
-
-            return true;
-        }
+        return true;
     }
 }

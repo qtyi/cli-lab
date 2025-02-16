@@ -1,16 +1,15 @@
 ﻿using Microsoft.DotNet.Tools.Uninstall.Shared.Utils;
 using Xunit;
 
-namespace Microsoft.DotNet.Tools.Uninstall.Tests.Attributes
+namespace Microsoft.DotNet.Tools.Uninstall.Tests.Attributes;
+
+internal sealed class WindowsOnlyFact : FactAttribute
 {
-    internal sealed class WindowsOnlyFact : FactAttribute
+    public WindowsOnlyFact()
     {
-        public WindowsOnlyFact()
+        if (!RuntimeInfo.RunningOnWindows)
         {
-            if (!RuntimeInfo.RunningOnWindows)
-            {
-                Skip = "Ignored on non-Windows platforms";
-            }
+            Skip = "Ignored on non-Windows platforms";
         }
     }
 }

@@ -8,24 +8,23 @@ using Microsoft.DotNet.Tools.Uninstall.Shared.Exceptions;
 using Microsoft.DotNet.Tools.Uninstall.Shared.BundleInfo;
 using Microsoft.DotNet.Tools.Uninstall.Shared.BundleInfo.Versioning;
 
-namespace Microsoft.DotNet.Tools.Uninstall.Shared.Filterers
+namespace Microsoft.DotNet.Tools.Uninstall.Shared.Filterers;
+
+internal class NoOptionFilterer : ArgFilterer<IEnumerable<string>>
 {
-    internal class NoOptionFilterer : ArgFilterer<IEnumerable<string>>
+    public override IEnumerable<Bundle<TBundleVersion>> Filter<TBundleVersion>(IEnumerable<string> argValue, IEnumerable<Bundle<TBundleVersion>> bundles)
     {
-        public override IEnumerable<Bundle<TBundleVersion>> Filter<TBundleVersion>(IEnumerable<string> argValue, IEnumerable<Bundle<TBundleVersion>> bundles)
+        var versions = argValue
+            .Select(value => BundleVersion.FromInput<TBundleVersion>(value))
+            .OrderBy(version => version);
+
+        if (versions.Any(version => !bundles.Select(bundle => bundle.Version).ToList().Contains(version)))
         {
-            var versions = argValue
-                .Select(value => BundleVersion.FromInput<TBundleVersion>(value))
-                .OrderBy(version => version);
-
-            if (versions.Any(version => !bundles.Select(bundle => bundle.Version).ToList().Contains(version)))
-            {
-                throw new SpecifiedVersionNotFoundException(versions
-                    .Where(version => !bundles.Select(bundle => bundle.Version).ToList().Contains(version)));
-            }
-
-            return bundles
-                .Where(bundle => versions.Contains(bundle.Version));
+            throw new SpecifiedVersionNotFoundException(versions
+                .Where(version => !bundles.Select(bundle => bundle.Version).ToList().Contains(version)));
         }
+
+        return bundles
+            .Where(bundle => versions.Contains(bundle.Version));
     }
 }

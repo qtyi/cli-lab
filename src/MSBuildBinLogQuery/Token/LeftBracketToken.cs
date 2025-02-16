@@ -1,11 +1,10 @@
-namespace Microsoft.Build.Logging.Query.Token
-{
-    public class LeftBracketToken : Token
-    {
-        public static LeftBracketToken Instance { get; } = new LeftBracketToken();
+﻿namespace Microsoft.Build.Logging.Query.Token;
 
-        private LeftBracketToken() : base()
-        {
-        }
+public class LeftBracketToken : Token
+{
+    public static LeftBracketToken Instance { get; } = new LeftBracketToken();
+
+    private LeftBracketToken() : base()
+    {
     }
 }

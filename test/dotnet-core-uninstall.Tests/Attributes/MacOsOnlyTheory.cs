@@ -1,16 +1,15 @@
 ﻿using Microsoft.DotNet.Tools.Uninstall.Shared.Utils;
 using Xunit;
 
-namespace Microsoft.DotNet.Tools.Uninstall.Tests.Attributes
+namespace Microsoft.DotNet.Tools.Uninstall.Tests.Attributes;
+
+internal sealed class MacOsOnlyTheory : TheoryAttribute
 {
-    internal sealed class MacOsOnlyTheory : TheoryAttribute
+    public MacOsOnlyTheory()
     {
-        public MacOsOnlyTheory()
+        if (!RuntimeInfo.RunningOnOSX)
         {
-            if (!RuntimeInfo.RunningOnOSX)
-            {
-                Skip = "Ignored on non-macOS platforms";
-            }
+            Skip = "Ignored on non-macOS platforms";
         }
     }
 }

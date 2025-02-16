@@ -1,11 +1,10 @@
-using System;
+﻿using System;
 
-namespace Microsoft.Build.Logging.Query.Parse
+namespace Microsoft.Build.Logging.Query.Parse;
+
+public class ParseException : Exception
 {
-    public class ParseException : Exception
+    public ParseException(string expression) : base(expression)
     {
-        public ParseException(string expression) : base(expression)
-        {
-        }
     }
 }

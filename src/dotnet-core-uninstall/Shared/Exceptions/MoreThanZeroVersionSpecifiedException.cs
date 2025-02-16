@@ -1,12 +1,11 @@
 ﻿// Copyright (c) .NET Foundation and contributors. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-namespace Microsoft.DotNet.Tools.Uninstall.Shared.Exceptions
+namespace Microsoft.DotNet.Tools.Uninstall.Shared.Exceptions;
+
+internal class MoreThanZeroVersionSpecifiedException : DotNetUninstallException
 {
-    internal class MoreThanZeroVersionSpecifiedException : DotNetUninstallException
-    {
-        public MoreThanZeroVersionSpecifiedException(string option) :
-            base(string.Format(LocalizableStrings.MoreThanZeroVersionSpecifiedExceptionMessageFormat, option))
-        { }
-    }
+    public MoreThanZeroVersionSpecifiedException(string option) :
+        base(string.Format(LocalizableStrings.MoreThanZeroVersionSpecifiedExceptionMessageFormat, option))
+    { }
 }

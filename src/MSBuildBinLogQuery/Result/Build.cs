@@ -1,42 +1,41 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using Microsoft.Build.Framework;
 
-namespace Microsoft.Build.Logging.Query.Result
+namespace Microsoft.Build.Logging.Query.Result;
+
+public class Build : Component
 {
-    public class Build : Component
+    public IReadOnlyDictionary<int, Project> ProjectsById => _projectsById;
+    public override Component Parent => null;
+
+    private readonly Dictionary<int, Project> _projectsById;
+
+    public Build() : base()
     {
-        public IReadOnlyDictionary<int, Project> ProjectsById => _projectsById;
-        public override Component Parent => null;
+        _projectsById = new Dictionary<int, Project>();
+    }
 
-        private readonly Dictionary<int, Project> _projectsById;
+    public Project AddProject(
+        int id,
+        string projectFile,
+        IEnumerable items,
+        IEnumerable properties,
+        IDictionary<string, string> globalProperties)
+    {
+        var project = new Project(
+            id,
+            projectFile,
+            items,
+            properties,
+            globalProperties,
+            this);
 
-        public Build() : base()
+        if (id != BuildEventContext.InvalidProjectInstanceId)
         {
-            _projectsById = new Dictionary<int, Project>();
+            _projectsById[id] = project;
         }
 
-        public Project AddProject(
-            int id,
-            string projectFile,
-            IEnumerable items,
-            IEnumerable properties,
-            IDictionary<string, string> globalProperties)
-        {
-            var project = new Project(
-                id,
-                projectFile,
-                items,
-                properties,
-                globalProperties,
-                this);
-
-            if (id != BuildEventContext.InvalidProjectInstanceId)
-            {
-                _projectsById[id] = project;
-            }
-
-            return project;
-        }
+        return project;
     }
 }

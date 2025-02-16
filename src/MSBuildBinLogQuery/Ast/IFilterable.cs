@@ -1,12 +1,11 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Microsoft.Build.Logging.Query.Result;
 
-namespace Microsoft.Build.Logging.Query.Ast
+namespace Microsoft.Build.Logging.Query.Ast;
+
+public interface IFilterable<TIn, TOut>
+    where TIn : IQueryResult
+    where TOut : IQueryResult
 {
-    public interface IFilterable<TIn, TOut>
-        where TIn : IQueryResult
-        where TOut : IQueryResult
-    {
-        IEnumerable<TOut> Filter(IEnumerable<TIn> components);
-    }
+    IEnumerable<TOut> Filter(IEnumerable<TIn> components);
 }

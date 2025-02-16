@@ -1,339 +1,338 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Microsoft.Build.Logging.Query.Ast;
 using Microsoft.Build.Logging.Query.Result;
 using Microsoft.Build.Logging.Query.Scan;
 using Microsoft.Build.Logging.Query.Token;
 
-namespace Microsoft.Build.Logging.Query.Parse
+namespace Microsoft.Build.Logging.Query.Parse;
+
+public class Parser
 {
-    public class Parser
+    private readonly Scanner _scanner;
+
+    private delegate bool TryConstraintParser<TParent>(out ConstraintNode<TParent> constraint)
+        where TParent : class, IQueryResult, IResultWithId;
+
+    private Parser(Scanner scanner)
     {
-        private readonly Scanner _scanner;
+        _scanner = scanner;
+    }
 
-        private delegate bool TryConstraintParser<TParent>(out ConstraintNode<TParent> constraint)
-            where TParent : class, IQueryResult, IResultWithId;
+    public static IAstNode<Result.Build> Parse(Scanner scanner)
+    {
+        var parser = new Parser(scanner);
+        var queryNode = parser.ParseQuery();
 
-        private Parser(Scanner scanner)
+        if (parser._scanner.Token is EofToken)
         {
-            _scanner = scanner;
+            return queryNode;
         }
 
-        public static IAstNode<Result.Build> Parse(Scanner scanner)
+        throw new ParseException(parser._scanner.Expression);
+    }
+
+    public static IAstNode<Result.Build> Parse(string expression)
+    {
+        var scanner = new Scanner(expression);
+        return Parse(scanner);
+    }
+
+    private TToken Consume<TToken>() where TToken : Token.Token
+    {
+        if (_scanner.Token is TToken)
         {
-            var parser = new Parser(scanner);
-            var queryNode = parser.ParseQuery();
+            var result = _scanner.Token as TToken;
+            _scanner.ReadNextToken();
 
-            if (parser._scanner.Token is EofToken)
-            {
-                return queryNode;
-            }
-
-            throw new ParseException(parser._scanner.Expression);
+            return result;
         }
-
-        public static IAstNode<Result.Build> Parse(string expression)
+        else
         {
-            var scanner = new Scanner(expression);
-            return Parse(scanner);
+            throw new ParseException(_scanner.Expression);
         }
+    }
 
-        private TToken Consume<TToken>() where TToken : Token.Token
+    private LogNodeType ParseSlash()
+    {
+        switch (_scanner.Token)
         {
-            if (_scanner.Token is TToken)
-            {
-                var result = _scanner.Token as TToken;
-                _scanner.ReadNextToken();
-
-                return result;
-            }
-            else
-            {
+            case SingleSlashToken _:
+                Consume<SingleSlashToken>();
+                return LogNodeType.Direct;
+            case DoubleSlashToken _:
+                Consume<DoubleSlashToken>();
+                return LogNodeType.All;
+            default:
                 throw new ParseException(_scanner.Expression);
-            }
         }
+    }
 
-        private LogNodeType ParseSlash()
+    private LogNode ParseLogNodeWithType(LogNodeType type)
+    {
+        switch (_scanner.Token)
         {
-            switch (_scanner.Token)
-            {
-                case SingleSlashToken _:
-                    Consume<SingleSlashToken>();
-                    return LogNodeType.Direct;
-                case DoubleSlashToken _:
-                    Consume<DoubleSlashToken>();
-                    return LogNodeType.All;
-                default:
-                    throw new ParseException(_scanner.Expression);
-            }
+            case MessageToken _:
+                Consume<MessageToken>();
+                return new MessageNode(type);
+            case WarningToken _:
+                Consume<WarningToken>();
+                return new WarningNode(type);
+            case ErrorToken _:
+                Consume<ErrorToken>();
+                return new ErrorNode(type);
+            default:
+                throw new ParseException(_scanner.Expression);
         }
+    }
 
-        private LogNode ParseLogNodeWithType(LogNodeType type)
+    private LogNode ParseLogNode()
+    {
+        var type = ParseSlash();
+        return ParseLogNodeWithType(type);
+    }
+
+    private LogNode ParseNullableLogNode()
+    {
+        switch (_scanner.Token)
         {
-            switch (_scanner.Token)
-            {
-                case MessageToken _:
-                    Consume<MessageToken>();
-                    return new MessageNode(type);
-                case WarningToken _:
-                    Consume<WarningToken>();
-                    return new WarningNode(type);
-                case ErrorToken _:
-                    Consume<ErrorToken>();
-                    return new ErrorNode(type);
-                default:
-                    throw new ParseException(_scanner.Expression);
-            }
+            case SingleSlashToken _:
+            case DoubleSlashToken _:
+                return ParseLogNode();
+            default:
+                return null;
         }
+    }
 
-        private LogNode ParseLogNode()
+    private IdNode<TParent> ParseIdConstraint<TParent>()
+        where TParent : class, IQueryResult, IResultWithId
+    {
+        Consume<IdToken>();
+        Consume<EqualToken>();
+
+        var value = Consume<IntegerToken>().Value;
+        return new IdNode<TParent>(value);
+    }
+
+    private NameNode<TParent> ParseNameConstraint<TParent>()
+        where TParent : class, IQueryResult, IResultWithName
+    {
+        Consume<NameToken>();
+        Consume<EqualToken>();
+
+        var value = Consume<StringToken>().Value;
+        return new NameNode<TParent>(value);
+    }
+
+    private PathNode<TParent> ParsePathConstraint<TParent>()
+        where TParent : class, IQueryResult, IResultWithPath
+    {
+        Consume<PathToken>();
+        Consume<EqualToken>();
+
+        var value = Consume<StringToken>().Value;
+        return new PathNode<TParent>(value);
+    }
+
+    private bool TryParseTaskConstraint(out ConstraintNode<Task> constraint)
+    {
+        switch (_scanner.Token)
         {
-            var type = ParseSlash();
-            return ParseLogNodeWithType(type);
-        }
+            case IdToken _:
+                constraint = ParseIdConstraint<Task>();
+                return true;
+            case NameToken _:
+                constraint = ParseNameConstraint<Task>();
+                return true;
+            default:
+                constraint = null;
+                return false;
+        };
+    }
 
-        private LogNode ParseNullableLogNode()
+    private bool TryParseTargetConstraint(out ConstraintNode<Target> constraint)
+    {
+        switch (_scanner.Token)
         {
-            switch (_scanner.Token)
-            {
-                case SingleSlashToken _:
-                case DoubleSlashToken _:
-                    return ParseLogNode();
-                default:
-                    return null;
-            }
-        }
+            case IdToken _:
+                constraint = ParseIdConstraint<Target>();
+                return true;
+            case NameToken _:
+                constraint = ParseNameConstraint<Target>();
+                return true;
+            default:
+                constraint = null;
+                return false;
+        };
+    }
 
-        private IdNode<TParent> ParseIdConstraint<TParent>()
-            where TParent : class, IQueryResult, IResultWithId
+    private bool TryParseProjectConstraint(out ConstraintNode<Project> constraint)
+    {
+        switch (_scanner.Token)
         {
-            Consume<IdToken>();
-            Consume<EqualToken>();
+            case IdToken _:
+                constraint = ParseIdConstraint<Project>();
+                return true;
+            case NameToken _:
+                constraint = ParseNameConstraint<Project>();
+                return true;
+            case PathToken _:
+                constraint = ParsePathConstraint<Project>();
+                return true;
+            default:
+                constraint = null;
+                return false;
+        };
+    }
 
-            var value = Consume<IntegerToken>().Value;
-            return new IdNode<TParent>(value);
-        }
+    private List<ConstraintNode<TParent>> ParseConstraints<TParent>(TryConstraintParser<TParent> tryConstraintParser)
+        where TParent : class, IQueryResult, IResultWithId
+    {
+        var constraints = new List<ConstraintNode<TParent>>();
 
-        private NameNode<TParent> ParseNameConstraint<TParent>()
-            where TParent : class, IQueryResult, IResultWithName
+        if (!(_scanner.Token is LeftBracketToken))
         {
-            Consume<NameToken>();
-            Consume<EqualToken>();
-
-            var value = Consume<StringToken>().Value;
-            return new NameNode<TParent>(value);
-        }
-
-        private PathNode<TParent> ParsePathConstraint<TParent>()
-            where TParent : class, IQueryResult, IResultWithPath
-        {
-            Consume<PathToken>();
-            Consume<EqualToken>();
-
-            var value = Consume<StringToken>().Value;
-            return new PathNode<TParent>(value);
-        }
-
-        private bool TryParseTaskConstraint(out ConstraintNode<Task> constraint)
-        {
-            switch (_scanner.Token)
-            {
-                case IdToken _:
-                    constraint = ParseIdConstraint<Task>();
-                    return true;
-                case NameToken _:
-                    constraint = ParseNameConstraint<Task>();
-                    return true;
-                default:
-                    constraint = null;
-                    return false;
-            };
-        }
-
-        private bool TryParseTargetConstraint(out ConstraintNode<Target> constraint)
-        {
-            switch (_scanner.Token)
-            {
-                case IdToken _:
-                    constraint = ParseIdConstraint<Target>();
-                    return true;
-                case NameToken _:
-                    constraint = ParseNameConstraint<Target>();
-                    return true;
-                default:
-                    constraint = null;
-                    return false;
-            };
-        }
-
-        private bool TryParseProjectConstraint(out ConstraintNode<Project> constraint)
-        {
-            switch (_scanner.Token)
-            {
-                case IdToken _:
-                    constraint = ParseIdConstraint<Project>();
-                    return true;
-                case NameToken _:
-                    constraint = ParseNameConstraint<Project>();
-                    return true;
-                case PathToken _:
-                    constraint = ParsePathConstraint<Project>();
-                    return true;
-                default:
-                    constraint = null;
-                    return false;
-            };
-        }
-
-        private List<ConstraintNode<TParent>> ParseConstraints<TParent>(TryConstraintParser<TParent> tryConstraintParser)
-            where TParent : class, IQueryResult, IResultWithId
-        {
-            var constraints = new List<ConstraintNode<TParent>>();
-
-            if (!(_scanner.Token is LeftBracketToken))
-            {
-                return constraints;
-            }
-
-            Consume<LeftBracketToken>();
-
-            if (!tryConstraintParser.Invoke(out var constraint))
-            {
-                Consume<RightBracketToken>();
-                return constraints;
-            }
-
-            constraints.Add(constraint);
-
-            while (_scanner.Token is CommaToken)
-            {
-                Consume<CommaToken>();
-
-                if (!tryConstraintParser.Invoke(out var anotherConstraint))
-                {
-                    throw new ParseException(_scanner.Expression);
-                }
-
-                constraints.Add(anotherConstraint);
-            }
-
-            Consume<RightBracketToken>();
-
             return constraints;
         }
 
-        private TaskNode ParseTaskNode()
+        Consume<LeftBracketToken>();
+
+        if (!tryConstraintParser.Invoke(out var constraint))
         {
-            Consume<TaskToken>();
-
-            var constraints = ParseConstraints<Task>(TryParseTaskConstraint);
-            var next = ParseNullableLogNode();
-            var task = next == null ?
-                new TaskNode(constraints) :
-                new TaskNode(next, constraints);
-
-            return task;
+            Consume<RightBracketToken>();
+            return constraints;
         }
 
-        private TargetNode ParseTargetNode()
+        constraints.Add(constraint);
+
+        while (_scanner.Token is CommaToken)
         {
-            Consume<TargetToken>();
+            Consume<CommaToken>();
 
-            var constraints = ParseConstraints<Target>(TryParseTargetConstraint);
-            var next = ParseNullableNodeUnderTarget();
-            var target = next == null ?
-                new TargetNode(constraints) :
-                new TargetNode(next, constraints);
-
-            return target;
-        }
-
-        private ProjectNode ParseProjectNode()
-        {
-            Consume<ProjectToken>();
-
-            var constraints = ParseConstraints<Project>(TryParseProjectConstraint);
-            var next = ParseNullableNodeUnderProject();
-            var project = next == null ?
-                new ProjectNode(constraints) :
-                new ProjectNode(next, constraints);
-
-            return project;
-        }
-
-        private IAstNode<Target> ParseSingleSlashNodeUnderTarget()
-        {
-            return _scanner.Token switch
+            if (!tryConstraintParser.Invoke(out var anotherConstraint))
             {
-                TaskToken _ => ParseTaskNode() as IAstNode<Target>,
-                _ => ParseLogNodeWithType(LogNodeType.Direct),
-            };
-        }
-
-        private IAstNode<Target> ParseNullableNodeUnderTarget()
-        {
-            switch (_scanner.Token)
-            {
-                case SingleSlashToken _:
-                    Consume<SingleSlashToken>();
-                    return ParseSingleSlashNodeUnderTarget();
-                case DoubleSlashToken _:
-                    Consume<DoubleSlashToken>();
-                    return ParseLogNodeWithType(LogNodeType.All);
-                default:
-                    return null;
+                throw new ParseException(_scanner.Expression);
             }
+
+            constraints.Add(anotherConstraint);
         }
 
-        private IAstNode<Project> ParseSingleSlashNodeUnderProject()
+        Consume<RightBracketToken>();
+
+        return constraints;
+    }
+
+    private TaskNode ParseTaskNode()
+    {
+        Consume<TaskToken>();
+
+        var constraints = ParseConstraints<Task>(TryParseTaskConstraint);
+        var next = ParseNullableLogNode();
+        var task = next == null ?
+            new TaskNode(constraints) :
+            new TaskNode(next, constraints);
+
+        return task;
+    }
+
+    private TargetNode ParseTargetNode()
+    {
+        Consume<TargetToken>();
+
+        var constraints = ParseConstraints<Target>(TryParseTargetConstraint);
+        var next = ParseNullableNodeUnderTarget();
+        var target = next == null ?
+            new TargetNode(constraints) :
+            new TargetNode(next, constraints);
+
+        return target;
+    }
+
+    private ProjectNode ParseProjectNode()
+    {
+        Consume<ProjectToken>();
+
+        var constraints = ParseConstraints<Project>(TryParseProjectConstraint);
+        var next = ParseNullableNodeUnderProject();
+        var project = next == null ?
+            new ProjectNode(constraints) :
+            new ProjectNode(next, constraints);
+
+        return project;
+    }
+
+    private IAstNode<Target> ParseSingleSlashNodeUnderTarget()
+    {
+        return _scanner.Token switch
         {
-            return _scanner.Token switch
-            {
-                TargetToken _ => ParseTargetNode() as IAstNode<Project>,
-                TaskToken _ => new TargetNode(ParseTaskNode()),
-                _ => ParseLogNodeWithType(LogNodeType.Direct),
-            };
+            TaskToken _ => ParseTaskNode() as IAstNode<Target>,
+            _ => ParseLogNodeWithType(LogNodeType.Direct),
+        };
+    }
+
+    private IAstNode<Target> ParseNullableNodeUnderTarget()
+    {
+        switch (_scanner.Token)
+        {
+            case SingleSlashToken _:
+                Consume<SingleSlashToken>();
+                return ParseSingleSlashNodeUnderTarget();
+            case DoubleSlashToken _:
+                Consume<DoubleSlashToken>();
+                return ParseLogNodeWithType(LogNodeType.All);
+            default:
+                return null;
         }
+    }
 
-        private IAstNode<Project> ParseNullableNodeUnderProject()
+    private IAstNode<Project> ParseSingleSlashNodeUnderProject()
+    {
+        return _scanner.Token switch
         {
-            switch (_scanner.Token)
-            {
-                case SingleSlashToken _:
-                    Consume<SingleSlashToken>();
-                    return ParseSingleSlashNodeUnderProject();
-                case DoubleSlashToken _:
-                    Consume<DoubleSlashToken>();
-                    return ParseLogNodeWithType(LogNodeType.All);
-                default:
-                    return null;
-            }
+            TargetToken _ => ParseTargetNode() as IAstNode<Project>,
+            TaskToken _ => new TargetNode(ParseTaskNode()),
+            _ => ParseLogNodeWithType(LogNodeType.Direct),
+        };
+    }
+
+    private IAstNode<Project> ParseNullableNodeUnderProject()
+    {
+        switch (_scanner.Token)
+        {
+            case SingleSlashToken _:
+                Consume<SingleSlashToken>();
+                return ParseSingleSlashNodeUnderProject();
+            case DoubleSlashToken _:
+                Consume<DoubleSlashToken>();
+                return ParseLogNodeWithType(LogNodeType.All);
+            default:
+                return null;
         }
+    }
 
-        private IAstNode<Result.Build> ParseSingleSlashQueryNode()
+    private IAstNode<Result.Build> ParseSingleSlashQueryNode()
+    {
+        return _scanner.Token switch
         {
-            return _scanner.Token switch
-            {
-                ProjectToken _ => ParseProjectNode() as IAstNode<Result.Build>,
-                TargetToken _ => new ProjectNode(ParseTargetNode()),
-                TaskToken _ => new ProjectNode(new TargetNode(ParseTaskNode())),
-                _ => ParseLogNodeWithType(LogNodeType.Direct),
-            };
-        }
+            ProjectToken _ => ParseProjectNode() as IAstNode<Result.Build>,
+            TargetToken _ => new ProjectNode(ParseTargetNode()),
+            TaskToken _ => new ProjectNode(new TargetNode(ParseTaskNode())),
+            _ => ParseLogNodeWithType(LogNodeType.Direct),
+        };
+    }
 
-        private IAstNode<Result.Build> ParseQuery()
+    private IAstNode<Result.Build> ParseQuery()
+    {
+        switch (_scanner.Token)
         {
-            switch (_scanner.Token)
-            {
-                case SingleSlashToken _:
-                    Consume<SingleSlashToken>();
-                    return ParseSingleSlashQueryNode();
-                case DoubleSlashToken _:
-                    Consume<DoubleSlashToken>();
-                    return ParseLogNodeWithType(LogNodeType.All);
-                default:
-                    throw new ParseException(_scanner.Expression);
+            case SingleSlashToken _:
+                Consume<SingleSlashToken>();
+                return ParseSingleSlashQueryNode();
+            case DoubleSlashToken _:
+                Consume<DoubleSlashToken>();
+                return ParseLogNodeWithType(LogNodeType.All);
+            default:
+                throw new ParseException(_scanner.Expression);
 
-            }
         }
     }
 }

@@ -3,10 +3,9 @@
 
 using System;
 
-namespace Microsoft.DotNet.Tools.Uninstall.Shared.Exceptions
+namespace Microsoft.DotNet.Tools.Uninstall.Shared.Exceptions;
+
+internal abstract class DotNetUninstallException : Exception
 {
-    internal abstract class DotNetUninstallException : Exception
-    {
-        public DotNetUninstallException(string message) : base(message) { }
-    }
+    public DotNetUninstallException(string message) : base(message) { }
 }

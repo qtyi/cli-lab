@@ -1,11 +1,10 @@
-namespace Microsoft.Build.Logging.Query.Token
-{
-    public class NameToken : Token
-    {
-        public static NameToken Instance { get; } = new NameToken();
+﻿namespace Microsoft.Build.Logging.Query.Token;
 
-        private NameToken() : base()
-        {
-        }
+public class NameToken : Token
+{
+    public static NameToken Instance { get; } = new NameToken();
+
+    private NameToken() : base()
+    {
     }
 }

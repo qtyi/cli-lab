@@ -1,6 +1,5 @@
-namespace Microsoft.Build.Logging.Query.Result
+﻿namespace Microsoft.Build.Logging.Query.Result;
+
+public interface IQueryResult
 {
-    public interface IQueryResult
-    {
-    }
 }

@@ -6,104 +6,103 @@ using System.Collections.Generic;
 using Microsoft.DotNet.Tools.Uninstall.Shared.Exceptions;
 using NuGet.Versioning;
 
-namespace Microsoft.DotNet.Tools.Uninstall.Shared.BundleInfo.Versioning
+namespace Microsoft.DotNet.Tools.Uninstall.Shared.BundleInfo.Versioning;
+
+internal abstract class BundleVersion
 {
-    internal abstract class BundleVersion
+    public abstract BundleType Type { get; }
+    public abstract BeforePatch BeforePatch { get; }
+    public string Footnote { get; private set; }
+    public bool HasFootnote => Footnote != null;
+
+    public SemanticVersion SemVer { get; private set; }
+
+    public virtual int Major => SemVer.Major;
+    public virtual int Minor => SemVer.Minor;
+    public virtual int Patch => SemVer.Patch;
+    public virtual bool IsPrerelease => SemVer.IsPrerelease;
+    public virtual MajorMinorVersion MajorMinor => new(Major, Minor);
+
+    protected BundleVersion()
     {
-        public abstract BundleType Type { get; }
-        public abstract BeforePatch BeforePatch { get; }
-        public string Footnote { get; private set; }
-        public bool HasFootnote => Footnote != null;
+        SemVer = null;
+    }
 
-        public SemanticVersion SemVer { get; private set; }
-
-        public virtual int Major => SemVer.Major;
-        public virtual int Minor => SemVer.Minor;
-        public virtual int Patch => SemVer.Patch;
-        public virtual bool IsPrerelease => SemVer.IsPrerelease;
-        public virtual MajorMinorVersion MajorMinor => new MajorMinorVersion(Major, Minor);
-
-        protected BundleVersion()
+    protected BundleVersion(string value, string footnote = null)
+    {
+        if (SemanticVersion.TryParse(value, out var semVer))
         {
-            SemVer = null;
+            SemVer = semVer;
         }
-
-        protected BundleVersion(string value, string footnote = null)
+        else if(value != null && SemanticVersion.TryParse(value.Replace(" ", ""), out var formattedSemVer))
         {
-            if (SemanticVersion.TryParse(value, out var semVer))
-            {
-                SemVer = semVer;
-            }
-            else if(value != null && SemanticVersion.TryParse(value.Replace(" ", ""), out var formattedSemVer))
-            {
-                SemVer = formattedSemVer;
-            }
-            else 
-            {
-                throw new InvalidInputVersionException(value);
-            }
-
-            Footnote = footnote;
+            SemVer = formattedSemVer;
         }
-
-        public static TBundleVersion FromInput<TBundleVersion>(string value, string footnote = null)
-            where TBundleVersion : BundleVersion, new()
+        else 
         {
-            if (SemanticVersion.TryParse(value, out var semVer))
-            {
-                return new TBundleVersion
-                {
-                    SemVer = semVer,
-                    Footnote = footnote
-                };
-            }
-
             throw new InvalidInputVersionException(value);
         }
 
-        public static bool TryFromInput<TBundleVersion>(string value, out TBundleVersion version)
-            where TBundleVersion : BundleVersion, new()
+        Footnote = footnote;
+    }
+
+    public static TBundleVersion FromInput<TBundleVersion>(string value, string footnote = null)
+        where TBundleVersion : BundleVersion, new()
+    {
+        if (SemanticVersion.TryParse(value, out var semVer))
         {
-            if (SemanticVersion.TryParse(value, out var semVer))
+            return new TBundleVersion
             {
-                version = new TBundleVersion
-                {
-                    SemVer = semVer
-                };
-                return true;
-            }
-
-            version = null;
-            return false;
+                SemVer = semVer,
+                Footnote = footnote
+            };
         }
 
-        public override string ToString()
+        throw new InvalidInputVersionException(value);
+    }
+
+    public static bool TryFromInput<TBundleVersion>(string value, out TBundleVersion version)
+        where TBundleVersion : BundleVersion, new()
+    {
+        if (SemanticVersion.TryParse(value, out var semVer))
         {
-            return SemVer.ToString();
+            version = new TBundleVersion
+            {
+                SemVer = semVer
+            };
+            return true;
         }
 
-        public string ToStringWithAsterisk()
-        {
-            var asterisk = HasFootnote ? " (*)" : "";
-            return $"{SemVer.ToString()}{asterisk}";
-        }
+        version = null;
+        return false;
+    }
 
-        protected bool Equals(BundleVersion other)
-        {
-            return other != null &&
-                   EqualityComparer<SemanticVersion>.Default.Equals(SemVer, other.SemVer);
-        }
+    public override string ToString()
+    {
+        return SemVer.ToString();
+    }
 
-        public override int GetHashCode()
-        {
-            return HashCode.Combine(SemVer);
-        }
+    public string ToStringWithAsterisk()
+    {
+        var asterisk = HasFootnote ? " (*)" : "";
+        return $"{SemVer.ToString()}{asterisk}";
+    }
 
-        public abstract Bundle ToBundle(BundleArch arch, string uninstallCommand, string displayName);
+    protected bool Equals(BundleVersion other)
+    {
+        return other != null &&
+               EqualityComparer<SemanticVersion>.Default.Equals(SemVer, other.SemVer);
+    }
 
-        public SemanticVersion GetVersionWithoutTags()
-        {
-            return new SemanticVersion(this.Major, this.Minor, this.SemVer.Patch);
-        }
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(SemVer);
+    }
+
+    public abstract Bundle ToBundle(BundleArch arch, string uninstallCommand, string displayName);
+
+    public SemanticVersion GetVersionWithoutTags()
+    {
+        return new SemanticVersion(this.Major, this.Minor, this.SemVer.Patch);
     }
 }
